@@ -600,7 +600,7 @@ void scanI2CBus()
   oxrsOutput[1].onEvent(outputEvent);  
 }
 
-bool initialiseMcp(int mcp, int address)
+void initialiseMcp(int mcp, int address)
 {
   Serial.print(F(" - 0x"));
   Serial.print(address, HEX);
