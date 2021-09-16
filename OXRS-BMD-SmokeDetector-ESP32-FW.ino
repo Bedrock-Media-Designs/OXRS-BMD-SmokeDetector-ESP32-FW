@@ -25,9 +25,12 @@
 */
 
 /*--------------------------- Version ------------------------------------*/
-#define FW_NAME    "OXRS-BMD-SmokeDetector-ESP32-FW"
-#define FW_CODE    "osd"
-#define FW_VERSION "1.0.0"
+#define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
+#define FW_CODE       "osd"
+#define FW_VERSION    "1.0.0"
+#define FW_SHORT_NAME "Smoke Detector"
+#define FW_MAKER_CODE "BMD"
+#define FW_PLATFORM   "ESP32"
 
 /*--------------------------- Configuration ------------------------------*/
 // Should be no user configuration in this file, everything should be in;
@@ -41,6 +44,7 @@
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
 #include <OXRS_Input.h>               // For input handling
 #include <OXRS_Output.h>              // For output handling
+#include <OXRS_LCD.h>                 // For LCD runtime displays
 
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>                     // Also required for Ethernet to get MAC
@@ -55,6 +59,13 @@
 #define MCP_OUTPUT1_ADDR  0x21
 #define MCP_OUTPUT2_ADDR  0x22
 
+/*--------------------------- Global Variables ---------------------------*/
+// Each bit corresponds to an MCP found on the IC2 bus
+uint8_t g_mcps_found = 0;
+
+// temperature update interval timer
+uint32_t g_last_temp_update = -TEMP_UPDATE_INTERVAL;
+
 /*--------------------------- Function Signatures ------------------------*/
 void mqttCallback(char * topic, byte * payload, int length);
 
@@ -62,14 +73,17 @@ void mqttCallback(char * topic, byte * payload, int length);
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
 
-// Input handlers
-OXRS_Input oxrsInput;
-
 // Output handlers
 OXRS_Output oxrsOutput[2];
 
+// Input handlers
+OXRS_Input oxrsInput;
+
 // Ethernet client
 EthernetClient ethernet;
+
+// LCD screen
+OXRS_LCD screen(Ethernet);
 
 // MQTT client
 PubSubClient mqttClient(MQTT_BROKER, MQTT_PORT, mqttCallback, ethernet);
@@ -85,7 +99,7 @@ void setup()
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println();
   Serial.println(F("==============================="));
-  Serial.println(F("     OXRS by SuperHouse.tv"));
+  Serial.println(F(" OXRS by Bedrock Media Designs"));
   Serial.println(FW_NAME);
   Serial.print  (F("            v"));
   Serial.println(FW_VERSION);
@@ -97,8 +111,23 @@ void setup()
   // Scan the I2C bus and set up I/O buffers
   scanI2CBus();
 
+  // Set up the screen
+  screen.begin();
+
   // Speed up I2C clock for faster scan rate (after bus scan)
   Wire.setClock(I2C_CLOCK_SPEED);  
+
+  // TODO: need layout option for 16 port SmokeDetector - i.e. 16 ports x 3 channels = 48 indexes
+  //       the MCPs aren't sequential in terms of the port animation - i.e. MCP0 is the 16 inputs
+  //       (channel 3 on each port), and MCP1 and MCP2 are the outputs (channels 1&2 on each port)
+
+  // MOIN: can we determine the layout from g_mcps_found? So if you are running the StateMonitor
+  //       firmware on a 16 port LSC, it will only show the 16 ports? The only tricky bit is
+  //       handling the smoke detector since the MCPs aren't sequential (see TODO above)
+  
+  // Display the header and initialise the port display
+  screen.draw_header(FW_MAKER_CODE, FW_SHORT_NAME, FW_VERSION, FW_PLATFORM);
+  screen.draw_ports(PORT_LAYOUT_INPUT_96, g_mcps_found);
 
   // Set up ethernet and obtain an IP address
   byte mac[6];
@@ -119,12 +148,54 @@ void loop()
   // Check our MQTT broker connection is still ok
   mqtt.loop();
 
-  // Check for any input events
-  oxrsInput.process(0, mcp23017[0].readGPIOAB());
+  // Iterate through each of the MCP23017s
+  for (uint8_t mcp = 0; mcp < 3; mcp++)
+  {
+    if (bitRead(g_mcps_found, mcp) == 0)
+      continue;
 
-  // Check for any output events
-  oxrsOutput[0].process();
-  oxrsOutput[1].process();
+    // Check for any output events
+    if (mcp > 0)
+    {
+      oxrsOutput[mcp - 1].process();
+    }
+
+    // Read the values for all 16 pins on this MCP
+    uint16_t io_value = mcp23017[mcp].readGPIOAB();
+
+    // Show port animations
+    screen.process(mcp, io_value);
+
+    // Check for any input events
+    if (mcp == 0)
+    {
+      oxrsInput.process(0, io_value);
+    }
+  }
+
+  // Check for temperature update
+  updateTemperature();
+    
+  // Maintain screen
+  screen.loop();
+}
+
+void updateTemperature()
+{
+  if ((millis() - g_last_temp_update) > TEMP_UPDATE_INTERVAL)
+  {
+    // TODO: read temp from onboard sensor
+    float temperature;
+    temperature = random(0, 10000) / 100.0;
+
+    // Display temp on screen
+    screen.show_temp(temperature); 
+
+    // Publish temp to mqtt
+    publishTemperature(temperature);
+    
+    g_last_temp_update = millis();
+  }
 }
 
 /**
@@ -145,6 +216,10 @@ void initialiseMqtt(byte * mac)
   mqtt.setTopicSuffix(MQTT_TOPIC_SUFFIX);
 #endif
   
+  // Display the MQTT topic on screen
+  char topic[64];
+  screen.show_MQTT_topic(mqtt.getWildcardTopic(topic));
+  
   // Listen for config and command messages
   mqtt.onConfig(mqttConfig);
   mqtt.onCommand(mqttCommand);  
@@ -152,6 +227,9 @@ void initialiseMqtt(byte * mac)
 
 void mqttCallback(char * topic, byte * payload, int length) 
 {
+  // Indicate we have received something on MQTT
+  screen.trigger_mqtt_rx_led();
+
   // Pass this message down to our MQTT handler
   mqtt.receive(topic, payload, length);
 }
@@ -387,6 +465,11 @@ void publishEvent(uint8_t index, char * type, char * event)
   uint8_t port = getPort(index);
   uint8_t channel = getChannel(index);
 
+  // Show event on screen
+  char display[32];
+  sprintf_P(display, PSTR("idx:%2d %s %s   "), index, type, event);
+  screen.show_event(display);
+
   // Build JSON payload for this event
   StaticJsonDocument<128> json;
   json["port"] = port;
@@ -396,10 +479,33 @@ void publishEvent(uint8_t index, char * type, char * event)
   json["event"] = event;
 
   // Publish to MQTT
-  if (!mqtt.publishStatus(json.as<JsonObject>()))
+  if (mqtt.publishStatus(json.as<JsonObject>()))
   {
+    // Indicate we have sent something on MQTT
+    screen.trigger_mqtt_tx_led();
+  }
+  else
+  {
+    // TODO: add any failover handling in here!
     Serial.println("FAILOVER!!!");    
-  }  
+  }
+}
+
+void publishTemperature(float temperature)
+{
+  char payload[8];
+  sprintf(payload, "%2.2f", temperature);
+
+  // Build JSON payload for this event
+  StaticJsonDocument<64> json;
+  json["temperature"] = payload;
+  
+  // Publish to MQTT
+  if (mqtt.publishTelemetry(json.as<JsonObject>()))
+  {
+    // Indicate we have sent something on MQTT
+    screen.trigger_mqtt_tx_led();
+  }
 }
 
 void getInputType(char inputType[], uint8_t type)
@@ -609,6 +715,9 @@ void initialiseMcp(int mcp, int address)
   Wire.beginTransmission(address);
   if (Wire.endTransmission() == 0)
   {
+    bitWrite(g_mcps_found, mcp, 1);
+    
+    // If an MCP23017 was found then initialise and configure the inputs/outputs
     mcp23017[mcp].begin_I2C(address);
     for (uint8_t pin = 0; pin < MCP_PIN_COUNT; pin++)
     {
