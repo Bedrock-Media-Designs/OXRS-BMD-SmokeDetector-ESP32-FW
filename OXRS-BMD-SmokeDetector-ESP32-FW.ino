@@ -61,10 +61,10 @@
 
 /*--------------------------- Global Variables ---------------------------*/
 // Each bit corresponds to an MCP found on the IC2 bus
-uint8_t   g_mcps_found = 0;
+uint8_t g_mcps_found = 0;
 
 // temperature update interval timer
-uint32_t  g_last_temp_update = -TEMP_UPDATE_INTERVAL;
+uint32_t g_last_temp_update = -TEMP_UPDATE_INTERVAL;
 
 /*--------------------------- Function Signatures ------------------------*/
 void mqttCallback(char * topic, byte * payload, int length);
@@ -151,27 +151,26 @@ void loop()
   // Iterate through each of the MCP23017s
   for (uint8_t mcp = 0; mcp < 3; mcp++)
   {
-    // Is this an input or output MCP?
-    uint16_t io_value;
-    if (mcp == 0)
-    {
-      // Read the values for all 16 inputs on this MCP
-      io_value = mcp23017[mcp].readGPIOAB();
-      
-      // Check for any input events
-      oxrsInput.process(mcp, io_value);
-    }
-    else
-    {
-      // Check for any output events
-      oxrsOutput[mcp - 1].process();
+    if (bitRead(g_mcps_found, mcp) == 0)
+      continue;
 
-      // Read the values for all 16 outputs on this MCP (after events)
-      io_value = mcp23017[mcp].readGPIOAB();
+    // Check for any output events
+    if (mcp > 0)
+    {
+      oxrsOutput[mcp - 1].process();
     }
-    
+
+    // Read the values for all 16 pins on this MCP
+    uint16_t io_value = mcp23017[mcp].readGPIOAB();
+
     // Show port animations
     screen.process(mcp, io_value);
+
+    // Check for any input events
+    if (mcp == 0)
+    {
+      oxrsInput.process(0, io_value);
+    }
   }
 
   // Check for temperature update
@@ -217,9 +216,9 @@ void initialiseMqtt(byte * mac)
   mqtt.setTopicSuffix(MQTT_TOPIC_SUFFIX);
 #endif
   
-  // Display the MQTT status topic on screen
+  // Display the MQTT topic on screen
   char topic[64];
-  screen.show_MQTT_topic(mqtt.getStatusTopic(topic));
+  screen.show_MQTT_topic(mqtt.getWildcardTopic(topic));
   
   // Listen for config and command messages
   mqtt.onConfig(mqttConfig);
@@ -468,7 +467,7 @@ void publishEvent(uint8_t index, char * type, char * event)
 
   // Show event on screen
   char display[32];
-  sprintf_P(display, PSTR("IDX:%2d %s %s   "), index, type, event);
+  sprintf_P(display, PSTR("idx:%2d %s %s   "), index, type, event);
   screen.show_event(display);
 
   // Build JSON payload for this event
