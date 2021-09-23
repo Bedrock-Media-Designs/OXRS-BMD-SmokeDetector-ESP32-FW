@@ -127,7 +127,7 @@ void setup()
   
   // Display the header and initialise the port display
   screen.draw_header(FW_MAKER_CODE, FW_SHORT_NAME, FW_VERSION, FW_PLATFORM);
-  screen.draw_ports(PORT_LAYOUT_INPUT_96, g_mcps_found);
+  screen.draw_ports(PORT_LAYOUT_IO_48, g_mcps_found);
 
   // Set up ethernet and obtain an IP address
   byte mac[6];
@@ -712,7 +712,7 @@ void initialiseMcp(int mcp, int address)
     mcp23017[mcp].begin_I2C(address);
     for (uint8_t pin = 0; pin < MCP_PIN_COUNT; pin++)
     {
-      mcp23017[mcp].pinMode(pin, address == MCP_INPUT_ADDR ? INPUT : OUTPUT);
+      mcp23017[mcp].pinMode(pin, address == MCP_INPUT_ADDR ? INPUT_PULLUP : OUTPUT);
     }
 
     Serial.println(F("MCP23017"));
