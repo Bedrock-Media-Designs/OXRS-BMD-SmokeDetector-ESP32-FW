@@ -39,6 +39,7 @@
 /*--------------------------- Libraries ----------------------------------*/
 #include <Wire.h>                     // For I2C
 #include <Ethernet.h>                 // For networking
+#include <Adafruit_MCP9808.h>         // For temp sensor
 #include <PubSubClient.h>             // For MQTT
 #include <OXRS_MQTT.h>                // For MQTT
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -70,6 +71,9 @@ uint32_t g_last_temp_update = -TEMP_UPDATE_INTERVAL_MS;
 void mqttCallback(char * topic, byte * payload, int length);
 
 /*--------------------------- Instantiate Global Objects -----------------*/
+// Temp sensor
+Adafruit_MCP9808 tempSensor;
+
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
 
@@ -184,10 +188,9 @@ void updateTemperature()
 {
   if ((millis() - g_last_temp_update) > TEMP_UPDATE_INTERVAL_MS)
   {
-    // TODO: read temp from onboard sensor
-    float temperature;
-    temperature = random(0, 10000) / 100.0;
-
+    // Read temp from onboard sensor
+    float temperature = tempSensor.readTempC();
+    
     // Display temp on screen
     screen.show_temp(temperature); 
 
@@ -485,7 +488,7 @@ void publishEvent(uint8_t index, char * type, char * event)
 void publishTemperature(float temperature)
 {
   char payload[8];
-  sprintf(payload, "%2.2f", temperature);
+  sprintf(payload, "%2.1f", temperature);
 
   // Build JSON payload for this event
   StaticJsonDocument<64> json;
@@ -684,20 +687,40 @@ void scanI2CBus()
 {
   Serial.println(F("Scanning for devices on the I2C bus..."));
 
-  // Initialise the 3 MCP chips
-  initialiseMcp(0, MCP_INPUT_ADDR);
-  initialiseMcp(1, MCP_OUTPUT1_ADDR);
-  initialiseMcp(2, MCP_OUTPUT2_ADDR);
+  // Initialise the temp sensor
+  initialiseMCP9808(MCP9808_I2C_ADDRESS, MCP9808_MODE);
+
+  // Initialise the 3 MCP I/O buffers
+  initialiseMCP23017(0, MCP_INPUT_ADDR);
+  initialiseMCP23017(1, MCP_OUTPUT1_ADDR);
+  initialiseMCP23017(2, MCP_OUTPUT2_ADDR);
   
   // Listen for input events
   oxrsInput.onEvent(inputEvent);
 
   // Listen for output events
-  oxrsOutput[0].onEvent(outputEvent);  
-  oxrsOutput[1].onEvent(outputEvent);  
+  oxrsOutput[0].onEvent(outputEvent);
+  oxrsOutput[1].onEvent(outputEvent);
 }
 
-void initialiseMcp(int mcp, int address)
+void initialiseMCP9808(int address, int mode)
+{
+  Serial.print(F(" - 0x"));
+  Serial.print(address, HEX);
+  Serial.print(F("..."));
+
+  if (tempSensor.begin(address))
+  {
+    tempSensor.setResolution(mode);
+    Serial.println(F("MCP9808"));
+  }
+  else
+  {
+    Serial.println(F("empty"));
+  }
+}
+
+void initialiseMCP23017(int mcp, int address)
 {
   Serial.print(F(" - 0x"));
   Serial.print(address, HEX);
