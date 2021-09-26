@@ -20,12 +20,13 @@ OXRS_MQTT _mqtt(_mqttClient);
 // Temp sensor
 Adafruit_MCP9808 _tempSensor;
 
-OXRS_Rack32::OXRS_Rack32(const char * fwMakerCode, const char * fwCode, const char * fwName, const char * fwVersion)
+OXRS_Rack32::OXRS_Rack32(const char * fwName, const char * fwShortName, const char * fwMakerCode, const char * fwVersion, const char * fwCode)
 {
-  _fwMakerCode  = fwMakerCode;
-  _fwCode       = fwCode;
   _fwName       = fwName;
+  _fwShortName  = fwShortName;
+  _fwMakerCode  = fwMakerCode;
   _fwVersion    = fwVersion;  
+  _fwCode       = fwCode;
 }
 
 void _mqttCallback(char * topic, byte * payload, int length) 
@@ -69,22 +70,34 @@ void OXRS_Rack32::updateDisplayPorts(uint8_t mcp, uint16_t ioValue)
 
 void OXRS_Rack32::begin(jsonCallback config, jsonCallback command)
 {
-  // Set our config/command callbacks
-  _mqtt.onConfig(config);
-  _mqtt.onCommand(command);
+  // Startup logging to serial
+  Serial.begin(SERIAL_BAUD_RATE);
+  Serial.println();
+  Serial.println(F("==============================="));
+  Serial.print(F(  "          OXRS by "));
+  Serial.println(_fwMakerCode);
+  Serial.println(_fwName);
+  Serial.print  (F("             v"));
+  Serial.println(_fwVersion);
+  Serial.println(F("==============================="));
+
+  // Start the I2C bus
+  Wire.begin();
 
   // Set up the screen
   _screen.begin();
+
+  // Display firmware details
+  _screen.draw_header(_fwMakerCode, _fwShortName, _fwVersion, "ESP32");
 
   // Set up ethernet and obtain an IP address
   byte mac[6];
   _initialiseEthernet(mac);
   
-  // Set MQTT client id to the f/w code + MAC address
+  // Set MQTT client id and callbacks
   _mqtt.setClientId(_fwCode, mac);
-
-  // Display firmware details
-  _screen.draw_header(_fwMakerCode, _fwName, _fwVersion, "ESP32");
+  _mqtt.onConfig(config);
+  _mqtt.onCommand(command);
 
   // Display the MQTT topic
   char topic[64];
@@ -162,7 +175,7 @@ void OXRS_Rack32::_initialiseEthernet(byte * ethernetMac)
 
 void OXRS_Rack32::_initialiseTempSensor()
 {
-  Serial.println(F("Scanning I2C for temperature sensor..."));
+  Serial.println(F("Scanning for temperature sensor on I2C bus..."));
   Serial.print(F(" - 0x"));
   Serial.print(MCP9808_I2C_ADDRESS, HEX);
   Serial.print(F("..."));

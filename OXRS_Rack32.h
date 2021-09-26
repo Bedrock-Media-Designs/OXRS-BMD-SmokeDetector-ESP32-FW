@@ -5,6 +5,9 @@
 #include <OXRS_MQTT.h>                // For MQTT
 #include <OXRS_LCD.h>                 // For LCD runtime displays
 
+/* Serial */
+#define       SERIAL_BAUD_RATE        115200
+
 /* Ethernet */
 #define       ETHERNET_CS_PIN         26
 #define       WIZNET_RESET_PIN        13
@@ -25,8 +28,7 @@ typedef void (*jsonCallback)(JsonObject);
 class OXRS_Rack32
 {
   public:
-    OXRS_Rack32();
-    OXRS_Rack32(const char * fwMakerCode, const char * fwCode, const char * fwName, const char * fwVersion);
+    OXRS_Rack32(const char * fwName, const char * fwShortName, const char * fwMakerCode, const char * fwVersion, const char * fwCode);
     
     void setMqttBroker(const char * broker, uint16_t port);
     void setMqttAuth(const char * username, const char * password);
@@ -43,10 +45,11 @@ class OXRS_Rack32
     boolean publishTelemetry(JsonObject json);
 
   private:
-    const char * _fwMakerCode;
-    const char * _fwCode;
     const char * _fwName;
+    const char * _fwShortName;
+    const char * _fwMakerCode;
     const char * _fwVersion;
+    const char * _fwCode;
     
     jsonCallback _onConfig;
     jsonCallback _onCommand;

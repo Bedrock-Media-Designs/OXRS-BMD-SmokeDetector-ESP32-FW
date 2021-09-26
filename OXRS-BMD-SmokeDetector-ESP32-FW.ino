@@ -25,8 +25,8 @@
 
 /*--------------------------- Version ------------------------------------*/
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
-#define FW_MAKER_CODE "BMD"
 #define FW_SHORT_NAME "Smoke Detector"
+#define FW_MAKER_CODE "BMD"
 #define FW_VERSION    "1.0.0"
 #define FW_CODE       "osd"
 
@@ -56,7 +56,7 @@ uint8_t g_mcps_found = 0;
 
 /*--------------------------- Instantiate Global Objects -----------------*/
 // Rack32 handler
-OXRS_Rack32 rack32(FW_MAKER_CODE, FW_CODE, FW_SHORT_NAME, FW_VERSION);
+OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER_CODE, FW_VERSION, FW_CODE);
 
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
@@ -73,22 +73,6 @@ OXRS_Input oxrsInput;
 */
 void setup()
 {
-  // Startup logging to serial
-  Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println();
-  Serial.println(F("==============================="));
-  Serial.println(F(" OXRS by Bedrock Media Designs"));
-  Serial.println(FW_NAME);
-  Serial.print  (F("            v"));
-  Serial.println(FW_VERSION);
-  Serial.println(F("==============================="));
-
-  // Start the I2C bus
-  Wire.begin();
-
-  // Scan the I2C bus and set up I/O buffers
-  scanI2CBus();
-
   // Set up Rack32 config
   rack32.setMqttBroker(MQTT_BROKER, MQTT_PORT);
   rack32.setMqttAuth(MQTT_USERNAME, MQTT_PASSWORD);
@@ -97,6 +81,9 @@ void setup()
   
   // Start Rack32 hardware
   rack32.begin(jsonConfig, jsonCommand);
+
+  // Scan the I2C bus and set up I/O buffers
+  scanI2CBus();
 
   // Set up port display
   rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
@@ -570,7 +557,7 @@ void outputEvent(uint8_t id, uint8_t output, uint8_t type, uint8_t state)
  */
 void scanI2CBus()
 {
-  Serial.println(F("Scanning for devices on the I2C bus..."));
+  Serial.println(F("Scanning for MCP23017s on I2C bus..."));
 
   // Initialise the 3 MCP I/O buffers
   initialiseMCP23017(0, MCP_INPUT_ADDR);
