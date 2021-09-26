@@ -8,8 +8,7 @@
 
   External dependencies. Install using the Arduino library manager:
     "Adafruit_MCP23X17" (requires recent "Adafruit_BusIO" library)
-    "PubSubClient" by Nick O'Leary
-    "OXRS-IO-MQTT-ESP32-LIB" by OXRS Core Team
+    "OXRS-IO-Rack32-ESP32-LIB" by OXRS Core Team (requires MQTT and LCD libraries)
     "OXRS-SHA-IOHandler-ESP32-LIB" by SuperHouse Automation Pty
 
   Compatible with the Smoke Detector hardware found here:
@@ -26,11 +25,10 @@
 
 /*--------------------------- Version ------------------------------------*/
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
-#define FW_CODE       "osd"
-#define FW_VERSION    "1.0.0"
-#define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER_CODE "BMD"
-#define FW_PLATFORM   "ESP32"
+#define FW_SHORT_NAME "Smoke Detector"
+#define FW_VERSION    "1.0.0"
+#define FW_CODE       "osd"
 
 /*--------------------------- Configuration ------------------------------*/
 // Should be no user configuration in this file, everything should be in;
@@ -38,18 +36,10 @@
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Wire.h>                     // For I2C
-#include <Ethernet.h>                 // For networking
-#include <Adafruit_MCP9808.h>         // For temp sensor
-#include <PubSubClient.h>             // For MQTT
-#include <OXRS_MQTT.h>                // For MQTT
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
+#include "OXRS_Rack32.h"              // Rack32 support
 #include <OXRS_Input.h>               // For input handling
 #include <OXRS_Output.h>              // For output handling
-#include <OXRS_LCD.h>                 // For LCD runtime displays
-
-#ifdef ARDUINO_ARCH_ESP32
-#include <WiFi.h>                     // Also required for Ethernet to get MAC
-#endif
 
 /*--------------------------- Constants ----------------------------------*/
 // Each MCP23017 has 16 I/O pins
@@ -64,15 +54,9 @@
 // Each bit corresponds to an MCP found on the IC2 bus
 uint8_t g_mcps_found = 0;
 
-// temperature update interval timer
-uint32_t g_last_temp_update = -TEMP_UPDATE_INTERVAL_MS;
-
-/*--------------------------- Function Signatures ------------------------*/
-void mqttCallback(char * topic, byte * payload, int length);
-
 /*--------------------------- Instantiate Global Objects -----------------*/
-// Temp sensor
-Adafruit_MCP9808 tempSensor;
+// Rack32 handler
+OXRS_Rack32 rack32(FW_MAKER_CODE, FW_CODE, FW_SHORT_NAME, FW_VERSION);
 
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
@@ -82,16 +66,6 @@ OXRS_Output oxrsOutput[2];
 
 // Input handlers
 OXRS_Input oxrsInput;
-
-// Ethernet client
-EthernetClient ethernet;
-
-// LCD screen
-OXRS_LCD screen(Ethernet);
-
-// MQTT client
-PubSubClient mqttClient(MQTT_BROKER, MQTT_PORT, mqttCallback, ethernet);
-OXRS_MQTT mqtt(mqttClient);
 
 /*--------------------------- Program ------------------------------------*/
 /**
@@ -115,30 +89,20 @@ void setup()
   // Scan the I2C bus and set up I/O buffers
   scanI2CBus();
 
-  // Set up the screen
-  screen.begin();
-
-  // Speed up I2C clock for faster scan rate (after bus scan)
-  Wire.setClock(I2C_CLOCK_SPEED);  
-
-  // TODO: need layout option for 16 port SmokeDetector - i.e. 16 ports x 3 channels = 48 indexes
-  //       the MCPs aren't sequential in terms of the port animation - i.e. MCP0 is the 16 inputs
-  //       (channel 3 on each port), and MCP1 and MCP2 are the outputs (channels 1&2 on each port)
-
-  // MOIN: can we determine the layout from g_mcps_found? So if you are running the StateMonitor
-  //       firmware on a 16 port LSC, it will only show the 16 ports? The only tricky bit is
-  //       handling the smoke detector since the MCPs aren't sequential (see TODO above)
+  // Set up Rack32 config
+  rack32.setMqttBroker(MQTT_BROKER, MQTT_PORT);
+  rack32.setMqttAuth(MQTT_USERNAME, MQTT_PASSWORD);
+  rack32.setMqttTopicPrefix(MQTT_TOPIC_PREFIX);
+  rack32.setMqttTopicSuffix(MQTT_TOPIC_SUFFIX);
   
-  // Display the header and initialise the port display
-  screen.draw_header(FW_MAKER_CODE, FW_SHORT_NAME, FW_VERSION, FW_PLATFORM);
-  screen.draw_ports(PORT_LAYOUT_INPUT_96, g_mcps_found);
+  // Start Rack32 hardware
+  rack32.begin(jsonConfig, jsonCommand);
 
-  // Set up ethernet and obtain an IP address
-  byte mac[6];
-  initialiseEthernet(mac);
-
-  // Set up connection to MQTT broker
-  initialiseMqtt(mac);
+  // Set up port display
+  rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
+  
+  // Speed up I2C clock for faster scan rate (after bus scan)
+  Wire.setClock(I2C_CLOCK_SPEED);
 }
 
 /**
@@ -146,12 +110,6 @@ void setup()
 */
 void loop()
 {
-  // Check our DHCP lease is still ok
-  Ethernet.maintain();
-
-  // Check our MQTT broker connection is still ok
-  mqtt.loop();
-
   // Iterate through each of the MCP23017s
   for (uint8_t mcp = 0; mcp < 3; mcp++)
   {
@@ -168,7 +126,7 @@ void loop()
     uint16_t io_value = mcp23017[mcp].readGPIOAB();
 
     // Show port animations
-    screen.process(mcp, io_value);
+    rack32.updateDisplayPorts(mcp, io_value);
 
     // Check for any input events
     if (mcp == 0)
@@ -177,77 +135,26 @@ void loop()
     }
   }
 
-  // Check for temperature update
-  updateTemperature();
-    
-  // Maintain screen
-  screen.loop();
+  // Let Rack32 hardware handle any events etc
+  rack32.loop();
 }
 
-void updateTemperature()
-{
-  if ((millis() - g_last_temp_update) > TEMP_UPDATE_INTERVAL_MS)
-  {
-    // Read temp from onboard sensor
-    float temperature = tempSensor.readTempC();
-    
-    // Display temp on screen
-    screen.show_temp(temperature); 
-
-    // Publish temp to mqtt
-    publishTemperature(temperature);
-    
-    g_last_temp_update = millis();
-  }
-}
-
-/**
-  MQTT
-*/
-void initialiseMqtt(byte * mac)
-{
-  // Set the MQTT client id to the f/w code + MAC address
-  mqtt.setClientId(FW_CODE, mac);
-
-  // Set credentials and any extra topic parts specified
-  if (MQTT_USERNAME     != NULL) { mqtt.setAuth(MQTT_USERNAME, MQTT_PASSWORD); }
-  if (MQTT_TOPIC_PREFIX != NULL) { mqtt.setTopicPrefix(MQTT_TOPIC_PREFIX); }
-  if (MQTT_TOPIC_SUFFIX != NULL) { mqtt.setTopicSuffix(MQTT_TOPIC_SUFFIX); }
-  
-  // Display the MQTT topic on screen
-  char topic[64];
-  screen.show_MQTT_topic(mqtt.getWildcardTopic(topic));
-  
-  // Listen for config and command messages
-  mqtt.onConfig(mqttConfig);
-  mqtt.onCommand(mqttCommand);  
-}
-
-void mqttCallback(char * topic, byte * payload, int length) 
-{
-  // Indicate we have received something on MQTT
-  screen.trigger_mqtt_rx_led();
-
-  // Pass this message down to our MQTT handler
-  mqtt.receive(topic, payload, length);
-}
-
-void mqttConfig(JsonObject json)
+void jsonConfig(JsonObject json)
 {
   uint8_t index = getIndex(json);
   if (index == 0) return;
 
   if ((index % 3) == 0)
   {
-    mqttInputConfig(index, json);
+    jsonInputConfig(index, json);
   }
   else
   {
-    mqttOutputConfig(index, json);
+    jsonOutputConfig(index, json);
   }
 }
 
-void mqttInputConfig(uint8_t index, JsonObject json)
+void jsonInputConfig(uint8_t index, JsonObject json)
 {
   // Work out which pin on the input MCP we are configuring
   uint8_t pin = (index / 3) - 1;
@@ -289,7 +196,7 @@ void mqttInputConfig(uint8_t index, JsonObject json)
   }
 }
 
-void mqttOutputConfig(uint8_t index, JsonObject json)
+void jsonOutputConfig(uint8_t index, JsonObject json)
 {
   // Work out which output MCP and pin we are configuring
   uint8_t mcp = getOutputMcp(index);
@@ -356,7 +263,7 @@ void mqttOutputConfig(uint8_t index, JsonObject json)
   }
 }
 
-void mqttCommand(JsonObject json)
+void jsonCommand(JsonObject json)
 {
   uint8_t index = getIndex(json);
   if (index == 0) return;
@@ -460,9 +367,9 @@ void publishEvent(uint8_t index, char * type, char * event)
   uint8_t channel = getChannel(index);
 
   // Show event on screen
-  char display[32];
-  sprintf_P(display, PSTR("idx:%2d %s %s   "), index, type, event);
-  screen.show_event(display);
+//  char display[32];
+//  sprintf_P(display, PSTR("idx:%2d %s %s   "), index, type, event);
+//  screen.show_event(display);
 
   // Build JSON payload for this event
   StaticJsonDocument<128> json;
@@ -472,33 +379,11 @@ void publishEvent(uint8_t index, char * type, char * event)
   json["type"] = type;
   json["event"] = event;
 
-  // Publish to MQTT
-  if (mqtt.publishStatus(json.as<JsonObject>()))
-  {
-    // Indicate we have sent something on MQTT
-    screen.trigger_mqtt_tx_led();
-  }
-  else
+  // Publish event
+  if (!rack32.publishStatus(json.as<JsonObject>()))
   {
     // TODO: add any failover handling in here!
     Serial.println("FAILOVER!!!");    
-  }
-}
-
-void publishTemperature(float temperature)
-{
-  char payload[8];
-  sprintf(payload, "%2.1f", temperature);
-
-  // Build JSON payload for this event
-  StaticJsonDocument<64> json;
-  json["temperature"] = payload;
-  
-  // Publish to MQTT
-  if (mqtt.publishTelemetry(json.as<JsonObject>()))
-  {
-    // Indicate we have sent something on MQTT
-    screen.trigger_mqtt_tx_led();
   }
 }
 
@@ -687,9 +572,6 @@ void scanI2CBus()
 {
   Serial.println(F("Scanning for devices on the I2C bus..."));
 
-  // Initialise the temp sensor
-  initialiseMCP9808(MCP9808_I2C_ADDRESS, MCP9808_MODE);
-
   // Initialise the 3 MCP I/O buffers
   initialiseMCP23017(0, MCP_INPUT_ADDR);
   initialiseMCP23017(1, MCP_OUTPUT1_ADDR);
@@ -701,23 +583,6 @@ void scanI2CBus()
   // Listen for output events
   oxrsOutput[0].onEvent(outputEvent);
   oxrsOutput[1].onEvent(outputEvent);
-}
-
-void initialiseMCP9808(int address, int mode)
-{
-  Serial.print(F(" - 0x"));
-  Serial.print(address, HEX);
-  Serial.print(F("..."));
-
-  if (tempSensor.begin(address))
-  {
-    tempSensor.setResolution(mode);
-    Serial.println(F("MCP9808"));
-  }
-  else
-  {
-    Serial.println(F("empty"));
-  }
 }
 
 void initialiseMCP23017(int mcp, int address)
@@ -745,55 +610,4 @@ void initialiseMCP23017(int mcp, int address)
     // No MCP found at this address
     Serial.println(F("empty"));
   }
-}
-
-/**
-  Ethernet
- */
-void initialiseEthernet(byte * ethernet_mac)
-{
-  // Determine MAC address
-#if ARDUINO_ARCH_ESP32
-  Serial.print(F("Getting Ethernet MAC address from ESP32: "));
-  WiFi.macAddress(ethernet_mac);  // Temporarily populate Ethernet MAC with ESP32 Base MAC
-  ethernet_mac[5] += 3;           // Ethernet MAC is Base MAC + 3 (see https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/system.html#mac-address)
-#else
-  Serial.print(F("Using hardcoded MAC address: "));
-  ethernet_mac[0] = 0xDE;
-  ethernet_mac[1] = 0xAD;
-  ethernet_mac[2] = 0xBE;
-  ethernet_mac[3] = 0xEF;
-  ethernet_mac[4] = 0xFE;
-  ethernet_mac[5] = 0xED;
-#endif
-
-  // Display MAC address on serial
-  char mac_address[18];
-  sprintf_P(mac_address, PSTR("%02X:%02X:%02X:%02X:%02X:%02X"), ethernet_mac[0], ethernet_mac[1], ethernet_mac[2], ethernet_mac[3], ethernet_mac[4], ethernet_mac[5]);
-  Serial.println(mac_address);
-
-  // Set up Ethernet
-#ifdef ETHERNET_CS_PIN
-  Ethernet.init(ETHERNET_CS_PIN);
-#endif
-
-  // Reset the Wiznet Ethernet chip
-#ifdef WIZNET_RESET_PIN
-  Serial.print("Resetting Wiznet W5500 Ethernet chip...");
-  pinMode(WIZNET_RESET_PIN, OUTPUT);
-  digitalWrite(WIZNET_RESET_PIN, HIGH);
-  delay(250);
-  digitalWrite(WIZNET_RESET_PIN, LOW);
-  delay(50);
-  digitalWrite(WIZNET_RESET_PIN, HIGH);
-  delay(350);
-  Serial.println("done");
-#endif
-
-  // Obtain IP address
-  Serial.print(F("Getting IP address via DHCP: "));
-  Ethernet.begin(ethernet_mac);
-
-  // Display IP address on serial
-  Serial.println(Ethernet.localIP());
 }
