@@ -26,12 +26,8 @@
 /*--------------------------- Firmware -----------------------------------*/
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
-#define FW_MAKER_CODE "BMD"
-#define FW_VERSION    "1.1.0"
-
-/*--------------------------- Configuration ------------------------------*/
-// Should be no user configuration in this file, everything should be in;
-#include "config.h"
+#define FW_MAKER      "Bedrock Media Designs"
+#define FW_VERSION    "2.0.0"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -41,12 +37,12 @@
 
 /*--------------------------- Constants ----------------------------------*/
 // Define the MCP addresses
-#define MCP_INPUT_ADDR    0x20
-#define MCP_OUTPUT1_ADDR  0x21
-#define MCP_OUTPUT2_ADDR  0x22
+#define       MCP_INPUT_I2C_ADDR    0x20
+#define       MCP_OUTPUT1_I2C_ADDR  0x21
+#define       MCP_OUTPUT2_I2C_ADDR  0x22
 
 // Each MCP23017 has 16 I/O pins
-#define MCP_PIN_COUNT   16
+#define       MCP_PIN_COUNT         16
 
 // Speed up the I2C bus to get faster event handling
 #define       I2C_CLOCK_SPEED       400000L
@@ -57,7 +53,7 @@ uint8_t g_mcps_found = 0;
 
 /*--------------------------- Global Objects -----------------------------*/
 // Rack32 handler
-OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER_CODE, FW_VERSION);
+OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER, FW_VERSION);
 
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
@@ -74,12 +70,6 @@ OXRS_Input oxrsInput;
 */
 void setup()
 {
-  // Set up Rack32 config
-  rack32.setMqttBroker(MQTT_BROKER, MQTT_PORT);
-  rack32.setMqttAuth(MQTT_USERNAME, MQTT_PASSWORD);
-  rack32.setMqttTopicPrefix(MQTT_TOPIC_PREFIX);
-  rack32.setMqttTopicSuffix(MQTT_TOPIC_SUFFIX);
-  
   // Start Rack32 hardware
   rack32.begin(jsonConfig, jsonCommand);
 
@@ -562,9 +552,9 @@ void scanI2CBus()
   Serial.println(F("[i2c ] scanning for I/O buffers..."));
 
   // Initialise the 3 MCP I/O buffers
-  initialiseMCP23017(0, MCP_INPUT_ADDR);
-  initialiseMCP23017(1, MCP_OUTPUT1_ADDR);
-  initialiseMCP23017(2, MCP_OUTPUT2_ADDR);
+  initialiseMCP23017(0, MCP_INPUT_I2C_ADDR);
+  initialiseMCP23017(1, MCP_OUTPUT1_I2C_ADDR);
+  initialiseMCP23017(2, MCP_OUTPUT2_I2C_ADDR);
   
   // Listen for input events
   oxrsInput.onEvent(inputEvent);
@@ -589,7 +579,7 @@ void initialiseMCP23017(int mcp, int address)
     mcp23017[mcp].begin_I2C(address);
     for (uint8_t pin = 0; pin < MCP_PIN_COUNT; pin++)
     {
-      mcp23017[mcp].pinMode(pin, address == MCP_INPUT_ADDR ? INPUT : OUTPUT);
+      mcp23017[mcp].pinMode(pin, address == MCP_INPUT_I2C_ADDR ? INPUT : OUTPUT);
     }
 
     Serial.println(F("MCP23017"));
