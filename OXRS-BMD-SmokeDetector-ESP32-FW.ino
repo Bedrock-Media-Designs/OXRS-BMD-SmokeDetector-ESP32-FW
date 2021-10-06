@@ -80,7 +80,7 @@ void setup()
   rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
   
   // Speed up I2C clock for faster scan rate (after bus scan)
-  Serial.print(F("[i2c ] setting I2C clock speed to "));
+  Serial.print(F("[osd ] setting I2C clock speed to "));
   Serial.println(I2C_CLOCK_SPEED);
   Wire.setClock(I2C_CLOCK_SPEED);
 }
@@ -162,7 +162,7 @@ void jsonInputConfig(uint8_t index, JsonObject json)
     }
     else 
     {
-      Serial.println(F("[erro] invalid input type"));
+      Serial.println(F("[osd ] invalid input type"));
     }
   }
   
@@ -201,7 +201,7 @@ void jsonOutputConfig(uint8_t index, JsonObject json)
     }
     else 
     {
-      Serial.println(F("[erro] invalid output type"));
+      Serial.println(F("[osd ] invalid output type"));
     }
   }
   
@@ -240,7 +240,7 @@ void jsonOutputConfig(uint8_t index, JsonObject json)
       }
       else
       {
-        Serial.println(F("[erro] lock must be with pin on same mcp"));
+        Serial.println(F("[osd ] lock must be with pin on same mcp"));
       }
     }
   }
@@ -257,7 +257,7 @@ void jsonCommand(JsonObject json)
   // Only outputs can receive commands - i.e. 1/2, 4/5, 7/8... 46/47
   if ((index % 3) == 0)
   {
-    Serial.println(F("[erro] command sent to input channel"));
+    Serial.println(F("[osd ] command sent to input channel"));
     return;
   }
 
@@ -274,7 +274,7 @@ void jsonCommand(JsonObject json)
         (strcmp(json["type"], "motor") == 0 && type != MOTOR) ||
         (strcmp(json["type"], "timer") == 0 && type != TIMER))
     {
-      Serial.println(F("[erro] command type doesn't match configured type"));
+      Serial.println(F("[osd ] command type doesn't match configured type"));
       return;
     }
   }
@@ -300,7 +300,7 @@ void jsonCommand(JsonObject json)
       }
       else 
       {
-        Serial.println(F("[erro] invalid command"));
+        Serial.println(F("[osd ] invalid command"));
       }
     }
   }
@@ -310,7 +310,7 @@ uint8_t getIndex(JsonObject json)
 {
   if (!json.containsKey("index"))
   {
-    Serial.println(F("[erro] missing index"));
+    Serial.println(F("[osd ] missing index"));
     return 0;
   }
   
@@ -319,7 +319,7 @@ uint8_t getIndex(JsonObject json)
   // Check the index is valid for this device
   if (index <= 0 || index > (3 * MCP_PIN_COUNT))
   {
-    Serial.println(F("[erro] invalid index"));
+    Serial.println(F("[osd ] invalid index"));
     return 0;
   }
 
@@ -549,7 +549,7 @@ void outputEvent(uint8_t id, uint8_t output, uint8_t type, uint8_t state)
  */
 void scanI2CBus()
 {
-  Serial.println(F("[i2c ] scanning for I/O buffers..."));
+  Serial.println(F("[osd ] scanning for I/O buffers..."));
 
   // Initialise the 3 MCP I/O buffers
   initialiseMCP23017(0, MCP_INPUT_I2C_ADDR);
