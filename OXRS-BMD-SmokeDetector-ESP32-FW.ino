@@ -34,7 +34,7 @@
 #include <OXRS_Rack32.h>              // Rack32 support
 #include <OXRS_Input.h>               // For input handling
 #include <OXRS_Output.h>              // For output handling
-#include "logo.h"                     // embedded maker supplied logo
+#include "logo.h"                     // Embedded maker logo
 
 /*--------------------------- Constants ----------------------------------*/
 // Define the MCP addresses
@@ -54,7 +54,7 @@ uint8_t g_mcps_found = 0;
 
 /*--------------------------- Global Objects -----------------------------*/
 // Rack32 handler
-OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER, FW_VERSION, logo);
+OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER, FW_VERSION, FW_LOGO);
 
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
