@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "2.1.0"
+#define FW_VERSION    "3.0.0"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
