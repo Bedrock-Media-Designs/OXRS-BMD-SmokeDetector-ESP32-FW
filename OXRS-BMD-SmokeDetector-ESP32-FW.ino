@@ -149,6 +149,7 @@ void inputConfigSchema(JsonVariant json)
 
   JsonObject properties = items.createNestedObject("properties");
 
+  // TODO: index validation is wrong - inputs are 3/6/9...48
   JsonObject index = properties.createNestedObject("index");
   index["type"] = "integer";
   index["minimum"] = 1;
@@ -178,6 +179,7 @@ void outputConfigSchema(JsonVariant json)
 
   JsonObject properties = items.createNestedObject("properties");
 
+  // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
   JsonObject index = properties.createNestedObject("index");
   index["type"] = "integer";
   index["minimum"] = 1;
