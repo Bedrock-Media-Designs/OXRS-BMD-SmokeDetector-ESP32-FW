@@ -129,10 +129,22 @@ void loop()
 void setConfigSchema()
 {
   // Define our config schema
-  StaticJsonDocument<1024> json;
-  json["type"] = "array";
+  StaticJsonDocument<2048> json;
+  JsonVariant config = json.as<JsonVariant>();
   
-  JsonObject items = json.createNestedObject("items");
+  inputConfigSchema(config);
+  outputConfigSchema(config);
+
+  // Pass our config schema down to the Rack32 library
+  rack32.setConfigSchema(config);
+}
+
+void inputConfigSchema(JsonVariant json)
+{
+  JsonObject inputs = json.createNestedObject("inputs");
+  inputs["type"] = "array";
+  
+  JsonObject items = inputs.createNestedObject("items");
   items["type"] = "object";
 
   JsonObject properties = items.createNestedObject("properties");
@@ -148,12 +160,34 @@ void setConfigSchema()
   typeEnum.add("contact");
   typeEnum.add("switch");
   typeEnum.add("toggle");
-  typeEnum.add("relay");
-  typeEnum.add("motor");
-  typeEnum.add("timer");
 
   JsonObject invert = properties.createNestedObject("invert");
   invert["type"] = "boolean";
+
+  JsonArray required = items.createNestedArray("required");
+  required.add("index"); 
+}
+
+void outputConfigSchema(JsonVariant json)
+{
+  JsonObject outputs = json.createNestedObject("outputs");
+  outputs["type"] = "array";
+  
+  JsonObject items = outputs.createNestedObject("items");
+  items["type"] = "object";
+
+  JsonObject properties = items.createNestedObject("properties");
+
+  JsonObject index = properties.createNestedObject("index");
+  index["type"] = "integer";
+  index["minimum"] = 1;
+  index["maximum"] = getMaxIndex();
+
+  JsonObject type = properties.createNestedObject("type");
+  JsonArray typeEnum = type.createNestedArray("enum");
+  typeEnum.add("relay");
+  typeEnum.add("motor");
+  typeEnum.add("timer");
 
   JsonObject timerSeconds = properties.createNestedObject("timerSeconds");
   timerSeconds["type"] = "integer";
@@ -166,28 +200,38 @@ void setConfigSchema()
 
   JsonArray required = items.createNestedArray("required");
   required.add("index");
-
-  // Pass our config schema down to the Rack32 library
-  rack32.setConfigSchema(json.as<JsonVariant>());
 }
 
 void jsonConfig(JsonVariant json)
 {
-  uint8_t index = getIndex(json);
-  if (index == 0) return;
-
-  if ((index % 3) == 0)
+  if (json.containsKey("inputs"))
   {
-    jsonInputConfig(index, json);
+    for (JsonVariant input : json["inputs"].as<JsonArray>())
+    {
+      jsonInputConfig(input);    
+    }
   }
-  else
+
+  if (json.containsKey("outputs"))
   {
-    jsonOutputConfig(index, json);
+    for (JsonVariant output : json["outputs"].as<JsonArray>())
+    {
+      jsonOutputConfig(output);
+    }
   }
 }
 
-void jsonInputConfig(uint8_t index, JsonVariant json)
+void jsonInputConfig(JsonVariant json)
 {
+  uint8_t index = getIndex(json);
+  if (index == 0) return;
+
+  if ((index % 3) != 0)
+  {
+    Serial.println(F("[osd ] input config sent to output channel"));
+    return;
+  }
+
   // Work out which pin on the input MCP we are configuring
   uint8_t pin = (index / 3) - 1;
 
@@ -228,8 +272,17 @@ void jsonInputConfig(uint8_t index, JsonVariant json)
   }
 }
 
-void jsonOutputConfig(uint8_t index, JsonVariant json)
+void jsonOutputConfig(JsonVariant json)
 {
+  uint8_t index = getIndex(json);
+  if (index == 0) return;
+
+  if ((index % 3) == 0)
+  {
+    Serial.println(F("[osd ] output config sent to input channel"));
+    return;
+  }
+
   // Work out which output MCP and pin we are configuring
   uint8_t mcp = getOutputMcp(index);
   uint8_t pin = getOutputPin(index);
