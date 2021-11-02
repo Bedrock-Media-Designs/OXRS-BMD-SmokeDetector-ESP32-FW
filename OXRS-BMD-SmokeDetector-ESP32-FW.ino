@@ -59,11 +59,11 @@ OXRS_Rack32 rack32(FW_NAME, FW_SHORT_NAME, FW_MAKER, FW_VERSION, FW_LOGO);
 // I/O buffers
 Adafruit_MCP23X17 mcp23017[3];
 
+// Input handler
+OXRS_Input oxrsInput;
+
 // Output handlers
 OXRS_Output oxrsOutput[2];
-
-// Input handlers
-OXRS_Input oxrsInput;
 
 /*--------------------------- Program ------------------------------------*/
 /**
@@ -239,17 +239,17 @@ void jsonInputConfig(JsonVariant json)
 
   if (json.containsKey("type"))
   {
-    if (json["type"].isNull() || strcmp(json["type"], "switch") == 0)
-    {
-      oxrsInput.setType(pin, SWITCH);
-    }
-    else if (strcmp(json["type"], "button") == 0)
+    if (strcmp(json["type"], "button") == 0)
     {
       oxrsInput.setType(pin, BUTTON);
     }
     else if (strcmp(json["type"], "contact") == 0)
     {
       oxrsInput.setType(pin, CONTACT);
+    }
+    else if (strcmp(json["type"], "switch") == 0)
+    {
+      oxrsInput.setType(pin, SWITCH);
     }
     else if (strcmp(json["type"], "toggle") == 0)
     {
@@ -263,14 +263,7 @@ void jsonInputConfig(JsonVariant json)
   
   if (json.containsKey("invert"))
   {
-    if (json["invert"].isNull())
-    {
-      oxrsInput.setInvert(pin, false);
-    }
-    else
-    {
-      oxrsInput.setInvert(pin, json["invert"].as<bool>());
-    }
+    oxrsInput.setInvert(pin, json["invert"].as<bool>());
   }
 }
 
@@ -291,13 +284,13 @@ void jsonOutputConfig(JsonVariant json)
 
   if (json.containsKey("type"))
   {
-    if (json["type"].isNull() || strcmp(json["type"], "relay") == 0)
-    {
-      oxrsOutput[mcp].setType(pin, RELAY);
-    }
-    else if (strcmp(json["type"], "motor") == 0)
+    if (strcmp(json["type"], "motor") == 0)
     {
       oxrsOutput[mcp].setType(pin, MOTOR);
+    }
+    else if (strcmp(json["type"], "relay") == 0)
+    {
+      oxrsOutput[mcp].setType(pin, RELAY);
     }
     else if (strcmp(json["type"], "timer") == 0)
     {
@@ -311,13 +304,13 @@ void jsonOutputConfig(JsonVariant json)
   
   if (json.containsKey("timerSeconds"))
   {
-    if (json["type"].isNull())
+    if (json["timerSeconds"].isNull())
     {
       oxrsOutput[mcp].setTimer(pin, DEFAULT_TIMER_SECS);
     }
     else
     {
-      oxrsOutput[mcp].setTimer(pin, json["timerSeconds"].as<int>());      
+      oxrsOutput[mcp].setTimer(pin, json["timerSeconds"].as<int>());
     }
   }
   
@@ -666,12 +659,12 @@ void scanI2CBus()
   initialiseMCP23017(1, MCP_OUTPUT1_I2C_ADDR);
   initialiseMCP23017(2, MCP_OUTPUT2_I2C_ADDR);
   
-  // Listen for input events
-  oxrsInput.onEvent(inputEvent);
+  // Initialise input handler (default to CONTACT)
+  oxrsInput.begin(inputEvent, CONTACT);
 
-  // Listen for output events
-  oxrsOutput[0].onEvent(outputEvent);
-  oxrsOutput[1].onEvent(outputEvent);
+  // Initialise output handlers
+  oxrsOutput[0].begin(outputEvent);
+  oxrsOutput[1].begin(outputEvent);
 }
 
 void initialiseMCP23017(int mcp, int address)
