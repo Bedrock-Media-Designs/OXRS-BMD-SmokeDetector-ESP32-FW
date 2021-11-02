@@ -666,12 +666,12 @@ void scanI2CBus()
   initialiseMCP23017(1, MCP_OUTPUT1_I2C_ADDR);
   initialiseMCP23017(2, MCP_OUTPUT2_I2C_ADDR);
   
-  // Listen for input events
-  oxrsInput.onEvent(inputEvent);
+  // Initialise input handler
+  oxrsInput.begin(inputEvent);
 
-  // Listen for output events
-  oxrsOutput[0].onEvent(outputEvent);
-  oxrsOutput[1].onEvent(outputEvent);
+  // Initialise output handlers
+  oxrsOutput[0].begin(outputEvent);
+  oxrsOutput[1].begin(outputEvent);
 }
 
 void initialiseMCP23017(int mcp, int address)
