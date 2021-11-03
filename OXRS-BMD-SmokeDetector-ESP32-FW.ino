@@ -464,8 +464,11 @@ void publishEvent(uint8_t index, char * type, char * event)
 
   if (!rack32.publishStatus(json.as<JsonVariant>()))
   {
-    // TODO: add any failover handling in here!
-    Serial.println("FAILOVER!!!");    
+    Serial.print(F("[osd ] [failover] "));
+    serializeJson(json, Serial);
+    Serial.println();
+
+    // TODO: add failover handling code here
   }
 }
 
