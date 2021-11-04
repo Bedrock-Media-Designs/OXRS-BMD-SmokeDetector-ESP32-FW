@@ -37,6 +37,9 @@
 #include "logo.h"                     // Embedded maker logo
 
 /*--------------------------- Constants ----------------------------------*/
+// Serial
+#define       SERIAL_BAUD_RATE      115200
+
 // Define the MCP addresses
 #define       MCP_INPUT_I2C_ADDR    0x20
 #define       MCP_OUTPUT1_I2C_ADDR  0x21
@@ -71,11 +74,23 @@ OXRS_Output oxrsOutput[2];
 */
 void setup()
 {
-  // Start Rack32 hardware
-  rack32.begin(jsonConfig, jsonCommand);
+  // Startup logging to serial
+  Serial.begin(SERIAL_BAUD_RATE);
+  Serial.println();
+  Serial.println(F("==============================="));
+  Serial.println(FW_NAME);
+  Serial.print  (F("             v"));
+  Serial.println(FW_VERSION);
+  Serial.println(F("==============================="));
+
+  // Start the I2C bus
+  Wire.begin();
 
   // Scan the I2C bus and set up I/O buffers
   scanI2CBus();
+
+  // Start Rack32 hardware
+  rack32.begin(jsonConfig, jsonCommand);
 
   // Set up port display
   rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
