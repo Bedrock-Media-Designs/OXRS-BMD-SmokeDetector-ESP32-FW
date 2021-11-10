@@ -99,8 +99,6 @@ void setup()
   setConfigSchema();
   
   // Speed up I2C clock for faster scan rate (after bus scan)
-  Serial.print(F("[osd ] setting I2C clock speed to "));
-  Serial.println(I2C_CLOCK_SPEED);
   Wire.setClock(I2C_CLOCK_SPEED);
 }
 
@@ -245,7 +243,7 @@ void jsonInputConfig(JsonVariant json)
 
   if ((index % 3) != 0)
   {
-    Serial.println(F("[osd ] input config sent to output channel"));
+    Serial.println(F("[smok] input config sent to output channel"));
     return;
   }
 
@@ -272,7 +270,7 @@ void jsonInputConfig(JsonVariant json)
     }
     else 
     {
-      Serial.println(F("[osd ] invalid input type"));
+      Serial.println(F("[smok] invalid input type"));
     }
   }
   
@@ -289,7 +287,7 @@ void jsonOutputConfig(JsonVariant json)
 
   if ((index % 3) == 0)
   {
-    Serial.println(F("[osd ] output config sent to input channel"));
+    Serial.println(F("[smok] output config sent to input channel"));
     return;
   }
 
@@ -313,7 +311,7 @@ void jsonOutputConfig(JsonVariant json)
     }
     else 
     {
-      Serial.println(F("[osd ] invalid output type"));
+      Serial.println(F("[smok] invalid output type"));
     }
   }
   
@@ -352,7 +350,7 @@ void jsonOutputConfig(JsonVariant json)
       }
       else
       {
-        Serial.println(F("[osd ] lock must be with pin on same mcp"));
+        Serial.println(F("[smok] lock must be with pin on same mcp"));
       }
     }
   }
@@ -369,7 +367,7 @@ void jsonCommand(JsonVariant json)
   // Only outputs can receive commands - i.e. 1/2, 4/5, 7/8... 46/47
   if ((index % 3) == 0)
   {
-    Serial.println(F("[osd ] command sent to input channel"));
+    Serial.println(F("[smok] command sent to input channel"));
     return;
   }
 
@@ -386,7 +384,7 @@ void jsonCommand(JsonVariant json)
         (strcmp(json["type"], "motor") == 0 && type != MOTOR) ||
         (strcmp(json["type"], "timer") == 0 && type != TIMER))
     {
-      Serial.println(F("[osd ] command type doesn't match configured type"));
+      Serial.println(F("[smok] command type doesn't match configured type"));
       return;
     }
   }
@@ -412,7 +410,7 @@ void jsonCommand(JsonVariant json)
       }
       else 
       {
-        Serial.println(F("[osd ] invalid command"));
+        Serial.println(F("[smok] invalid command"));
       }
     }
   }
@@ -428,7 +426,7 @@ uint8_t getIndex(JsonVariant json)
 {
   if (!json.containsKey("index"))
   {
-    Serial.println(F("[osd ] missing index"));
+    Serial.println(F("[smok] missing index"));
     return 0;
   }
   
@@ -437,7 +435,7 @@ uint8_t getIndex(JsonVariant json)
   // Check the index is valid for this device
   if (index <= 0 || index > getMaxIndex())
   {
-    Serial.println(F("[osd ] invalid index"));
+    Serial.println(F("[smok] invalid index"));
     return 0;
   }
 
@@ -479,7 +477,7 @@ void publishEvent(uint8_t index, char * type, char * event)
 
   if (!rack32.publishStatus(json.as<JsonVariant>()))
   {
-    Serial.print(F("[osd ] [failover] "));
+    Serial.print(F("[smok] [failover] "));
     serializeJson(json, Serial);
     Serial.println();
 
@@ -670,7 +668,7 @@ void outputEvent(uint8_t id, uint8_t output, uint8_t type, uint8_t state)
  */
 void scanI2CBus()
 {
-  Serial.println(F("[osd ] scanning for I/O buffers..."));
+  Serial.println(F("[smok] scanning for I/O buffers..."));
 
   // Initialise the 3 MCP I/O buffers
   initialiseMCP23017(0, MCP_INPUT_I2C_ADDR);
