@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.1.0"
+#define FW_VERSION    "3.1.1"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -77,11 +77,11 @@ void setup()
   // Startup logging to serial
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println();
-  Serial.println(F("==============================="));
-  Serial.println(FW_NAME);
-  Serial.print  (F("             v"));
-  Serial.println(FW_VERSION);
-  Serial.println(F("==============================="));
+  Serial.println(F("========================================"));
+  Serial.print  (F("FIRMWARE: ")); Serial.println(FW_NAME);
+  Serial.print  (F("MAKER:    ")); Serial.println(FW_MAKER);
+  Serial.print  (F("VERSION:  ")); Serial.println(FW_VERSION);
+  Serial.println(F("========================================"));
 
   // Start the I2C bus
   Wire.begin();
