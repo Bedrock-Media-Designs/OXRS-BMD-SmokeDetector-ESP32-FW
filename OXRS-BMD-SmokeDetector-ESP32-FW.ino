@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.1.1"
+#define FW_VERSION    "3.2.0"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -95,8 +95,9 @@ void setup()
   // Set up port display
   rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
   
-  // Set up config schema (for self-discovery and adoption)
+  // Set up config/command schema (for self-discovery and adoption)
   setConfigSchema();
+  setCommandSchema();
   
   // Speed up I2C clock for faster scan rate (after bus scan)
   Wire.setClock(I2C_CLOCK_SPEED);
@@ -359,7 +360,67 @@ void jsonOutputConfig(JsonVariant json)
 /**
   Command handler
  */
+/**
+  Config handler
+ */
+void setCommandSchema()
+{
+  // Define our config schema
+  StaticJsonDocument<2048> json;
+  JsonVariant command = json.as<JsonVariant>();
+  
+  outputCommandSchema(command);
+
+  // Pass our command schema down to the Rack32 library
+  rack32.setCommandSchema(command);
+}
+
+void outputCommandSchema(JsonVariant json)
+{
+  JsonObject outputs = json.createNestedObject("outputs");
+  outputs["type"] = "array";
+  
+  JsonObject items = outputs.createNestedObject("items");
+  items["type"] = "object";
+
+  JsonObject properties = items.createNestedObject("properties");
+
+  // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
+  JsonObject index = properties.createNestedObject("index");
+  index["type"] = "integer";
+  index["minimum"] = 1;
+  index["maximum"] = getMaxIndex();
+
+  JsonObject type = properties.createNestedObject("type");
+  JsonArray typeEnum = type.createNestedArray("enum");
+  typeEnum.add("relay");
+  typeEnum.add("motor");
+  typeEnum.add("timer");
+
+  JsonObject command = properties.createNestedObject("command");
+  command["type"] = "string";
+  JsonArray commandEnum = command.createNestedArray("enum");
+  commandEnum.add("query");
+  commandEnum.add("on");
+  commandEnum.add("off");
+
+  JsonArray required = items.createNestedArray("required");
+  required.add("index");
+  required.add("command");
+}
+
 void jsonCommand(JsonVariant json)
+{
+  if (json.containsKey("outputs"))
+  {
+    for (JsonVariant output : json["outputs"].as<JsonArray>())
+    {
+      jsonOutputCommand(output);
+    }
+  }
+}
+
+void jsonOutputCommand(JsonVariant json)
 {
   uint8_t index = getIndex(json);
   if (index == 0) return;
