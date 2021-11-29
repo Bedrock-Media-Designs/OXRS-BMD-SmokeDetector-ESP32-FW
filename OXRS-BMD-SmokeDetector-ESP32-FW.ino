@@ -166,7 +166,6 @@ void inputConfigSchema(JsonVariant json)
   // TODO: index validation is wrong - inputs are 3/6/9...48
   JsonObject index = properties.createNestedObject("index");
   index["type"] = "integer";
-  index["required"] = true;
   index["minimum"] = 1;
   index["maximum"] = getMaxIndex();
 
@@ -179,6 +178,9 @@ void inputConfigSchema(JsonVariant json)
 
   JsonObject invert = properties.createNestedObject("invert");
   invert["type"] = "boolean";
+
+  JsonArray required = items.createNestedArray("required");
+  required.add("index"); 
 }
 
 void outputConfigSchema(JsonVariant json)
@@ -194,7 +196,6 @@ void outputConfigSchema(JsonVariant json)
   // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
   JsonObject index = properties.createNestedObject("index");
   index["type"] = "integer";
-  index["required"] = true;
   index["minimum"] = 1;
   index["maximum"] = getMaxIndex();
 
@@ -212,6 +213,9 @@ void outputConfigSchema(JsonVariant json)
   interlockIndex["type"] = "integer";
   interlockIndex["minimum"] = 1;
   interlockIndex["maximum"] = getMaxIndex();
+
+  JsonArray required = items.createNestedArray("required");
+  required.add("index");
 }
 
 void jsonConfig(JsonVariant json)
@@ -384,7 +388,6 @@ void outputCommandSchema(JsonVariant json)
   // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
   JsonObject index = properties.createNestedObject("index");
   index["type"] = "integer";
-  index["required"] = true;
   index["minimum"] = 1;
   index["maximum"] = getMaxIndex();
 
@@ -396,11 +399,14 @@ void outputCommandSchema(JsonVariant json)
 
   JsonObject command = properties.createNestedObject("command");
   command["type"] = "string";
-  command["required"] = true;
   JsonArray commandEnum = command.createNestedArray("enum");
   commandEnum.add("query");
   commandEnum.add("on");
   commandEnum.add("off");
+
+  JsonArray required = items.createNestedArray("required");
+  required.add("index");
+  required.add("command");
 }
 
 void jsonCommand(JsonVariant json)
