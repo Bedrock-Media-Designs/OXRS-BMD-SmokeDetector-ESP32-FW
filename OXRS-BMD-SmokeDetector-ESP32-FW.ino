@@ -173,6 +173,7 @@ void inputConfigSchema(JsonVariant json)
   JsonArray typeEnum = type.createNestedArray("enum");
   typeEnum.add("button");
   typeEnum.add("contact");
+  typeEnum.add("press");
   typeEnum.add("switch");
   typeEnum.add("toggle");
 
@@ -260,6 +261,10 @@ void jsonInputConfig(JsonVariant json)
     else if (strcmp(json["type"], "contact") == 0)
     {
       oxrsInput.setType(pin, CONTACT);
+    }
+    else if (strcmp(json["type"], "press") == 0)
+    {
+      oxrsInput.setType(pin, PRESS);
     }
     else if (strcmp(json["type"], "switch") == 0)
     {
@@ -558,6 +563,9 @@ void getInputType(char inputType[], uint8_t type)
     case CONTACT:
       sprintf_P(inputType, PSTR("contact"));
       break;
+    case PRESS:
+      sprintf_P(inputType, PSTR("press"));
+      break;
     case SWITCH:
       sprintf_P(inputType, PSTR("switch"));
       break;
@@ -606,6 +614,9 @@ void getInputEventType(char eventType[], uint8_t type, uint8_t state)
           sprintf_P(eventType, PSTR("open"));
           break;
       }
+      break;
+    case PRESS:
+      sprintf_P(eventType, PSTR("press"));
       break;
     case SWITCH:
       switch (state)
