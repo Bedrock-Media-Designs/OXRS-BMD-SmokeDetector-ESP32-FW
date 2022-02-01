@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.8.0"
+#define FW_VERSION    "3.9.0"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -50,6 +50,9 @@
 
 // Speed up the I2C bus to get faster event handling
 #define       I2C_CLOCK_SPEED       400000L
+
+// Internal constants used when input/output type parsing fails
+#define       INVALID_IO_TYPE       99
 
 /*--------------------------- Global Variables ---------------------------*/
 // Each bit corresponds to an MCP found on the IC2 bus
@@ -170,12 +173,7 @@ void inputConfigSchema(JsonVariant json)
   index["maximum"] = getMaxIndex();
 
   JsonObject type = properties.createNestedObject("type");
-  JsonArray typeEnum = type.createNestedArray("enum");
-  typeEnum.add("button");
-  typeEnum.add("contact");
-  typeEnum.add("press");
-  typeEnum.add("switch");
-  typeEnum.add("toggle");
+  createInputTypeEnum(type);
 
   JsonObject invert = properties.createNestedObject("invert");
   invert["type"] = "boolean";
@@ -201,10 +199,7 @@ void outputConfigSchema(JsonVariant json)
   index["maximum"] = getMaxIndex();
 
   JsonObject type = properties.createNestedObject("type");
-  JsonArray typeEnum = type.createNestedArray("enum");
-  typeEnum.add("relay");
-  typeEnum.add("motor");
-  typeEnum.add("timer");
+  createOutputTypeEnum(type);
 
   JsonObject timerSeconds = properties.createNestedObject("timerSeconds");
   timerSeconds["type"] = "integer";
@@ -254,29 +249,11 @@ void jsonInputConfig(JsonVariant json)
 
   if (json.containsKey("type"))
   {
-    if (strcmp(json["type"], "button") == 0)
+    uint8_t inputType = parseInputType(json["type"]);
+
+    if (inputType != INVALID_IO_TYPE)
     {
-      oxrsInput.setType(pin, BUTTON);
-    }
-    else if (strcmp(json["type"], "contact") == 0)
-    {
-      oxrsInput.setType(pin, CONTACT);
-    }
-    else if (strcmp(json["type"], "press") == 0)
-    {
-      oxrsInput.setType(pin, PRESS);
-    }
-    else if (strcmp(json["type"], "switch") == 0)
-    {
-      oxrsInput.setType(pin, SWITCH);
-    }
-    else if (strcmp(json["type"], "toggle") == 0)
-    {
-      oxrsInput.setType(pin, TOGGLE);
-    }
-    else 
-    {
-      Serial.println(F("[smok] invalid input type"));
+      oxrsInput.setType(pin, inputType);
     }
   }
   
@@ -303,21 +280,11 @@ void jsonOutputConfig(JsonVariant json)
 
   if (json.containsKey("type"))
   {
-    if (strcmp(json["type"], "motor") == 0)
+    uint8_t outputType = parseOutputType(json["type"]);
+
+    if (outputType != INVALID_IO_TYPE)
     {
-      oxrsOutput[mcp].setType(pin, MOTOR);
-    }
-    else if (strcmp(json["type"], "relay") == 0)
-    {
-      oxrsOutput[mcp].setType(pin, RELAY);
-    }
-    else if (strcmp(json["type"], "timer") == 0)
-    {
-      oxrsOutput[mcp].setType(pin, TIMER);
-    }
-    else 
-    {
-      Serial.println(F("[smok] invalid output type"));
+      oxrsOutput[mcp].setType(pin, outputType);
     }
   }
   
@@ -364,9 +331,6 @@ void jsonOutputConfig(JsonVariant json)
 
 /**
   Command handler
- */
-/**
-  Config handler
  */
 void setCommandSchema()
 {
@@ -446,9 +410,7 @@ void jsonOutputCommand(JsonVariant json)
   
   if (json.containsKey("type"))
   {
-    if ((strcmp(json["type"], "relay") == 0 && type != RELAY) ||
-        (strcmp(json["type"], "motor") == 0 && type != MOTOR) ||
-        (strcmp(json["type"], "timer") == 0 && type != TIMER))
+    if (parseOutputType(json["type"]) != type)
     {
       Serial.println(F("[smok] command type doesn't match configured type"));
       return;
@@ -480,6 +442,50 @@ void jsonOutputCommand(JsonVariant json)
       }
     }
   }
+}
+
+void createInputTypeEnum(JsonObject parent)
+{
+  JsonArray typeEnum = parent.createNestedArray("enum");
+  
+  typeEnum.add("button");
+  typeEnum.add("contact");
+  typeEnum.add("press");
+  typeEnum.add("security");
+  typeEnum.add("switch");
+  typeEnum.add("toggle");
+}
+
+uint8_t parseInputType(const char * inputType)
+{
+  if (strcmp(inputType, "button")   == 0) { return BUTTON; }
+  if (strcmp(inputType, "contact")  == 0) { return CONTACT; }
+  if (strcmp(inputType, "press")    == 0) { return PRESS; }
+  if (strcmp(inputType, "security") == 0) { return SECURITY; }
+  if (strcmp(inputType, "switch")   == 0) { return SWITCH; }
+  if (strcmp(inputType, "toggle")   == 0) { return TOGGLE; }
+
+  Serial.println(F("[smok] invalid input type"));
+  return INVALID_IO_TYPE;
+}
+
+void createOutputTypeEnum(JsonObject parent)
+{
+  JsonArray typeEnum = parent.createNestedArray("enum");
+
+  typeEnum.add("relay");
+  typeEnum.add("motor");
+  typeEnum.add("timer");  
+}
+
+uint8_t parseOutputType(const char * outputType)
+{
+  if (strcmp(outputType, "relay") == 0) { return RELAY; }
+  if (strcmp(outputType, "motor") == 0) { return MOTOR; }
+  if (strcmp(outputType, "timer") == 0) { return TIMER; }
+
+  Serial.println(F("[smok] invalid output type"));
+  return INVALID_IO_TYPE;
 }
 
 uint8_t getMaxIndex()
@@ -566,6 +572,9 @@ void getInputType(char inputType[], uint8_t type)
     case PRESS:
       sprintf_P(inputType, PSTR("press"));
       break;
+    case SECURITY:
+      sprintf_P(inputType, PSTR("security"));
+      break;
     case SWITCH:
       sprintf_P(inputType, PSTR("switch"));
       break;
@@ -617,6 +626,23 @@ void getInputEventType(char eventType[], uint8_t type, uint8_t state)
       break;
     case PRESS:
       sprintf_P(eventType, PSTR("press"));
+      break;
+    case SECURITY:
+      switch (state)
+      {
+        case HIGH_EVENT:
+          sprintf_P(eventType, PSTR("normal"));
+          break;
+        case LOW_EVENT:
+          sprintf_P(eventType, PSTR("alarm"));
+          break;
+        case TAMPER_EVENT:
+          sprintf_P(eventType, PSTR("tamper"));
+          break;
+        case SHORT_EVENT:
+          sprintf_P(eventType, PSTR("short"));
+          break;
+      }
       break;
     case SWITCH:
       switch (state)
