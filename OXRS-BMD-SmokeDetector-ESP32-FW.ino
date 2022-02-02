@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.9.0"
+#define FW_VERSION    "3.8.1"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -361,10 +361,7 @@ void outputCommandSchema(JsonVariant json)
   index["maximum"] = getMaxIndex();
 
   JsonObject type = properties.createNestedObject("type");
-  JsonArray typeEnum = type.createNestedArray("enum");
-  typeEnum.add("relay");
-  typeEnum.add("motor");
-  typeEnum.add("timer");
+  createOutputTypeEnum(type);
 
   JsonObject command = properties.createNestedObject("command");
   command["type"] = "string";
@@ -451,7 +448,6 @@ void createInputTypeEnum(JsonObject parent)
   typeEnum.add("button");
   typeEnum.add("contact");
   typeEnum.add("press");
-  typeEnum.add("security");
   typeEnum.add("switch");
   typeEnum.add("toggle");
 }
@@ -461,7 +457,6 @@ uint8_t parseInputType(const char * inputType)
   if (strcmp(inputType, "button")   == 0) { return BUTTON; }
   if (strcmp(inputType, "contact")  == 0) { return CONTACT; }
   if (strcmp(inputType, "press")    == 0) { return PRESS; }
-  if (strcmp(inputType, "security") == 0) { return SECURITY; }
   if (strcmp(inputType, "switch")   == 0) { return SWITCH; }
   if (strcmp(inputType, "toggle")   == 0) { return TOGGLE; }
 
@@ -572,9 +567,6 @@ void getInputType(char inputType[], uint8_t type)
     case PRESS:
       sprintf_P(inputType, PSTR("press"));
       break;
-    case SECURITY:
-      sprintf_P(inputType, PSTR("security"));
-      break;
     case SWITCH:
       sprintf_P(inputType, PSTR("switch"));
       break;
@@ -626,23 +618,6 @@ void getInputEventType(char eventType[], uint8_t type, uint8_t state)
       break;
     case PRESS:
       sprintf_P(eventType, PSTR("press"));
-      break;
-    case SECURITY:
-      switch (state)
-      {
-        case HIGH_EVENT:
-          sprintf_P(eventType, PSTR("normal"));
-          break;
-        case LOW_EVENT:
-          sprintf_P(eventType, PSTR("alarm"));
-          break;
-        case TAMPER_EVENT:
-          sprintf_P(eventType, PSTR("tamper"));
-          break;
-        case SHORT_EVENT:
-          sprintf_P(eventType, PSTR("short"));
-          break;
-      }
       break;
     case SWITCH:
       switch (state)
