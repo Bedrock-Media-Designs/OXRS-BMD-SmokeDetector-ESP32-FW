@@ -20,7 +20,7 @@
   Bugs/Features:
     See GitHub issues list
 
-  Copyright 2019-2021 Bedrock Media Designs Ltd
+  Copyright 2019-2022 Bedrock Media Designs Ltd
 */
 
 /*--------------------------- Firmware -----------------------------------*/
