@@ -96,7 +96,7 @@ void setup()
   rack32.begin(jsonConfig, jsonCommand);
 
   // Set up port display
-  rack32.setDisplayPorts(g_mcps_found, PORT_LAYOUT_IO_48);
+  rack32.setDisplayPortLayout(g_mcps_found, PORT_LAYOUT_IO_48);
   
   // Set up config/command schema (for self-discovery and adoption)
   setConfigSchema();
