@@ -10,7 +10,6 @@
     [Adafruit_MCP23X17](https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library)
     [OXRS-SHA-Rack32-ESP32-LIB](https://github.com/SuperHouse/OXRS-SHA-Rack32-ESP32-LIB)
     [OXRS-SHA-IOHandler-ESP32-LIB](https://github.com/SuperHouse/OXRS-SHA-IOHandler-ESP32-LIB)
-    [MqttLogger](https://github.com/androbi-com/MqttLogger)
 
   Compatible with the Smoke Detector hardware found here:
     https://bmdesigns.com.au/
