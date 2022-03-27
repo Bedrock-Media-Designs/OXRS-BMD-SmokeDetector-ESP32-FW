@@ -547,7 +547,7 @@ void publishEvent(uint8_t index, char * type, char * event)
   if (!rack32.publishStatus(json.as<JsonVariant>()))
   {
     rack32.print(F("[smok] [failover] "));
-    serializeJson(json, Serial);
+    serializeJson(json, rack32);
     rack32.println();
 
     // TODO: add failover handling code here
