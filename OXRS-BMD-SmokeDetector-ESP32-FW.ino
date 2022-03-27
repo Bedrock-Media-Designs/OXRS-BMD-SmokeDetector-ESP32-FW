@@ -7,9 +7,10 @@
     ESP32
 
   External dependencies. Install using the Arduino library manager:
-    "Adafruit_MCP23017"
-    "OXRS-SHA-Rack32-ESP32-LIB" by SuperHouse Automation Pty
-    "OXRS-SHA-IOHandler-ESP32-LIB" by SuperHouse Automation Pty
+    [Adafruit_MCP23X17](https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library)
+    [OXRS-SHA-Rack32-ESP32-LIB](https://github.com/SuperHouse/OXRS-SHA-Rack32-ESP32-LIB)
+    [OXRS-SHA-IOHandler-ESP32-LIB](https://github.com/SuperHouse/OXRS-SHA-IOHandler-ESP32-LIB)
+    [MqttLogger](https://github.com/androbi-com/MqttLogger)
 
   Compatible with the Smoke Detector hardware found here:
     https://bmdesigns.com.au/
@@ -27,7 +28,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.9.0"
+#define FW_VERSION    "3.10.0"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -77,9 +78,11 @@ OXRS_Output oxrsOutput[2];
 */
 void setup()
 {
-  // Startup logging to serial
+  // Start serial and let settle
   Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println();
+  delay(1000);
+
+  // Dump firmware details to serial
   Serial.println(F("========================================"));
   Serial.print  (F("FIRMWARE: ")); Serial.println(FW_NAME);
   Serial.print  (F("MAKER:    ")); Serial.println(FW_MAKER);
@@ -240,7 +243,7 @@ void jsonInputConfig(JsonVariant json)
 
   if ((index % 3) != 0)
   {
-    Serial.println(F("[smok] input config sent to output channel"));
+    rack32.println(F("[smok] input config sent to output channel"));
     return;
   }
 
@@ -270,7 +273,7 @@ void jsonOutputConfig(JsonVariant json)
 
   if ((index % 3) == 0)
   {
-    Serial.println(F("[smok] output config sent to input channel"));
+    rack32.println(F("[smok] output config sent to input channel"));
     return;
   }
 
@@ -323,7 +326,7 @@ void jsonOutputConfig(JsonVariant json)
       }
       else
       {
-        Serial.println(F("[smok] lock must be with pin on same mcp"));
+        rack32.println(F("[smok] lock must be with pin on same mcp"));
       }
     }
   }
@@ -394,7 +397,7 @@ void jsonOutputCommand(JsonVariant json)
   // Only outputs can receive commands - i.e. 1/2, 4/5, 7/8... 46/47
   if ((index % 3) == 0)
   {
-    Serial.println(F("[smok] command sent to input channel"));
+    rack32.println(F("[smok] command sent to input channel"));
     return;
   }
 
@@ -409,7 +412,7 @@ void jsonOutputCommand(JsonVariant json)
   {
     if (parseOutputType(json["type"]) != type)
     {
-      Serial.println(F("[smok] command type doesn't match configured type"));
+      rack32.println(F("[smok] command type doesn't match configured type"));
       return;
     }
   }
@@ -435,7 +438,7 @@ void jsonOutputCommand(JsonVariant json)
       }
       else 
       {
-        Serial.println(F("[smok] invalid command"));
+        rack32.println(F("[smok] invalid command"));
       }
     }
   }
@@ -460,7 +463,7 @@ uint8_t parseInputType(const char * inputType)
   if (strcmp(inputType, "switch")   == 0) { return SWITCH; }
   if (strcmp(inputType, "toggle")   == 0) { return TOGGLE; }
 
-  Serial.println(F("[smok] invalid input type"));
+  rack32.println(F("[smok] invalid input type"));
   return INVALID_IO_TYPE;
 }
 
@@ -479,7 +482,7 @@ uint8_t parseOutputType(const char * outputType)
   if (strcmp(outputType, "motor") == 0) { return MOTOR; }
   if (strcmp(outputType, "timer") == 0) { return TIMER; }
 
-  Serial.println(F("[smok] invalid output type"));
+  rack32.println(F("[smok] invalid output type"));
   return INVALID_IO_TYPE;
 }
 
@@ -493,7 +496,7 @@ uint8_t getIndex(JsonVariant json)
 {
   if (!json.containsKey("index"))
   {
-    Serial.println(F("[smok] missing index"));
+    rack32.println(F("[smok] missing index"));
     return 0;
   }
   
@@ -502,7 +505,7 @@ uint8_t getIndex(JsonVariant json)
   // Check the index is valid for this device
   if (index <= 0 || index > getMaxIndex())
   {
-    Serial.println(F("[smok] invalid index"));
+    rack32.println(F("[smok] invalid index"));
     return 0;
   }
 
@@ -544,9 +547,9 @@ void publishEvent(uint8_t index, char * type, char * event)
 
   if (!rack32.publishStatus(json.as<JsonVariant>()))
   {
-    Serial.print(F("[smok] [failover] "));
+    rack32.print(F("[smok] [failover] "));
     serializeJson(json, Serial);
-    Serial.println();
+    rack32.println();
 
     // TODO: add failover handling code here
   }
@@ -741,7 +744,7 @@ void outputEvent(uint8_t id, uint8_t output, uint8_t type, uint8_t state)
  */
 void scanI2CBus()
 {
-  Serial.println(F("[smok] scanning for I/O buffers..."));
+  rack32.println(F("[smok] scanning for I/O buffers..."));
 
   // Initialise the 3 MCP I/O buffers
   initialiseMCP23017(0, MCP_INPUT_I2C_ADDR);
@@ -758,9 +761,9 @@ void scanI2CBus()
 
 void initialiseMCP23017(int mcp, int address)
 {
-  Serial.print(F(" - 0x"));
-  Serial.print(address, HEX);
-  Serial.print(F("..."));
+  rack32.print(F(" - 0x"));
+  rack32.print(address, HEX);
+  rack32.print(F("..."));
 
   Wire.beginTransmission(address);
   if (Wire.endTransmission() == 0)
@@ -774,10 +777,10 @@ void initialiseMCP23017(int mcp, int address)
       mcp23017[mcp].pinMode(pin, address == MCP_INPUT_I2C_ADDR ? INPUT : OUTPUT);
     }
 
-    Serial.println(F("MCP23017"));
+    rack32.println(F("MCP23017"));
   }
   else
   {
-    Serial.println(F("empty"));
+    rack32.println(F("empty"));
   }
 }
