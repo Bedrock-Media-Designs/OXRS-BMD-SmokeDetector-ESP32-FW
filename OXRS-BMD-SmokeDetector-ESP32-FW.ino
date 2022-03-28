@@ -27,7 +27,7 @@
 #define FW_NAME       "OXRS-BMD-SmokeDetector-ESP32-FW"
 #define FW_SHORT_NAME "Smoke Detector"
 #define FW_MAKER      "Bedrock Media Designs"
-#define FW_VERSION    "3.10.0"
+#define FW_VERSION    "3.10.1"
 
 /*--------------------------- Libraries ----------------------------------*/
 #include <Adafruit_MCP23X17.h>        // For MCP23017 I/O buffers
@@ -161,6 +161,8 @@ void setConfigSchema()
 void inputConfigSchema(JsonVariant json)
 {
   JsonObject inputs = json.createNestedObject("inputs");
+  inputs["title"] = "Input Configuration";
+  inputs["description"] = "Add configuration for each input in use on your device. The 1-based index specifies which input you wish to configure. The third channel on each port is an input, so valid input indexes are 3, 6, 9... etc. The type defines how an input is monitored and what events are generated. Inverting an input swaps the 'active' state (only useful for 'contact' and 'switch' inputs).";
   inputs["type"] = "array";
   
   JsonObject items = inputs.createNestedObject("items");
@@ -168,16 +170,19 @@ void inputConfigSchema(JsonVariant json)
 
   JsonObject properties = items.createNestedObject("properties");
 
-  // TODO: index validation is wrong - inputs are 3/6/9...48
+  // TODO: index validation should check inputs are 3/6/9...48
   JsonObject index = properties.createNestedObject("index");
+  index["title"] = "Index";
   index["type"] = "integer";
-  index["minimum"] = 1;
+  index["minimum"] = 3;
   index["maximum"] = getMaxIndex();
 
   JsonObject type = properties.createNestedObject("type");
+  type["title"] = "Type";
   createInputTypeEnum(type);
 
   JsonObject invert = properties.createNestedObject("invert");
+  invert["title"] = "Invert";
   invert["type"] = "boolean";
 
   JsonArray required = items.createNestedArray("required");
@@ -187,6 +192,8 @@ void inputConfigSchema(JsonVariant json)
 void outputConfigSchema(JsonVariant json)
 {
   JsonObject outputs = json.createNestedObject("outputs");
+  outputs["title"] = "Output Configuration";
+  outputs["description"] = "Add configuration for each output in use on your device. The 1-based index specifies which output you wish to configure. The first and second channels on each port are outputs, so valid output indexes are 1, 2, 4, 5, 7, 8... etc. The type defines how an output is controlled. For ‘timer’ outputs you can define how long it should stay ON (defaults to 60 seconds). Interlocking two outputs ensures they are never both on at the same time (useful for controlling motors).";
   outputs["type"] = "array";
   
   JsonObject items = outputs.createNestedObject("items");
@@ -194,20 +201,24 @@ void outputConfigSchema(JsonVariant json)
 
   JsonObject properties = items.createNestedObject("properties");
 
-  // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
+  // TODO: index validation should check outputs are 1-2/4-5/7-8...46-47
   JsonObject index = properties.createNestedObject("index");
+  index["title"] = "Index";
   index["type"] = "integer";
   index["minimum"] = 1;
-  index["maximum"] = getMaxIndex();
+  index["maximum"] = getMaxIndex() - 1;
 
   JsonObject type = properties.createNestedObject("type");
+  type["title"] = "Type";
   createOutputTypeEnum(type);
 
   JsonObject timerSeconds = properties.createNestedObject("timerSeconds");
+  timerSeconds["title"] = "Timer (seconds)";
   timerSeconds["type"] = "integer";
   timerSeconds["minimum"] = 1;
 
   JsonObject interlockIndex = properties.createNestedObject("interlockIndex");
+  interlockIndex["title"] = "Interlock With Index";
   interlockIndex["type"] = "integer";
   interlockIndex["minimum"] = 1;
   interlockIndex["maximum"] = getMaxIndex();
@@ -349,6 +360,8 @@ void setCommandSchema()
 void outputCommandSchema(JsonVariant json)
 {
   JsonObject outputs = json.createNestedObject("outputs");
+  outputs["title"] = "Output Commands";
+  outputs["description"] = "Send commands to one or more outputs on your device. The 1-based index specifies which output you wish to command. The first and second channels on each port are outputs, so valid output indexes are 1, 2, 4, 5, 7, 8... etc. The type is used to validate the configuration for this output matches the command. Supported commands are ‘on’ or ‘off’ to change the output state, or ‘query’ to publish the current state to MQTT.";
   outputs["type"] = "array";
   
   JsonObject items = outputs.createNestedObject("items");
@@ -358,14 +371,17 @@ void outputCommandSchema(JsonVariant json)
 
   // TODO: index validation is wrong - outputs are 1-2/4-5/7-8...46-47
   JsonObject index = properties.createNestedObject("index");
+  index["title"] = "Index";
   index["type"] = "integer";
   index["minimum"] = 1;
-  index["maximum"] = getMaxIndex();
+  index["maximum"] = getMaxIndex() - 1;
 
   JsonObject type = properties.createNestedObject("type");
+  type["title"] = "Type";
   createOutputTypeEnum(type);
 
   JsonObject command = properties.createNestedObject("command");
+  command["title"] = "Command";
   command["type"] = "string";
   JsonArray commandEnum = command.createNestedArray("enum");
   commandEnum.add("query");
